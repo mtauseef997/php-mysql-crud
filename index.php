@@ -1,139 +1,151 @@
 <?php
-include 'connect.php';
 
-$limit = 10; // Records per page
-$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-if ($page < 1) $page = 1;
-$offset = ($page - 1) * $limit;
-
-// Get total records count
-$totalResult = $con->query("SELECT COUNT(*) AS count FROM `record`");
-$totalRow = $totalResult->fetch_assoc();
-$totalRecords = $totalRow['count'];
-$totalPages = ceil($totalRecords / $limit);
-
-// Fetch records for current page
-$result = $con->query("SELECT * FROM `record` LIMIT $limit OFFSET $offset");
+/**
+ * Enhanced Student Record Management System - Main Index Page
+ * Features: AJAX-based sorting, filtering, pagination, loader, and modern UI
+ */
+require_once 'connect.php';
 ?>
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Student Record List</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" />
-    <!-- DataTables CSS -->
-    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Record Management System</title>
+
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Font Awesome Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Custom CSS -->
+    <link href="assets/css/style.css" rel="stylesheet">
 </head>
 
 <body>
+    <!-- Alert Container -->
+    <div id="alertContainer" class="container mt-3"></div>
+
     <div class="container mt-4">
-        <div class="card shadow">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h3 class="mb-0">Student Record List</h3>
-                <a href="create.php" class="btn btn-dark">Add Student</a>
-            </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table id="studentTable"
-                        class="table table-bordered table-striped table-hover text-center align-middle">
-                        <thead class="table-dark">
-                            <tr>
-                                <th>ID</th>
-                                <th>Name</th>
-                                <th>English</th>
-                                <th>Urdu</th>
-                                <th>Maths</th>
-                                <th>Physics</th>
-                                <th>Chemistry</th>
-                                <th>Obtained</th>
-                                <th>Total</th>
-                                <th>Percentage</th>
-                                <th>Grade</th>
-                                <th>Remarks</th>
-                                <th>Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php
-                            if ($result && $result->num_rows > 0) {
-                                $records = $result->fetch_all(MYSQLI_ASSOC);
-                                foreach ($records as $row) {
-                                    echo "<tr>
-                                        <td>{$row['ID']}</td>
-                                        <td>{$row['NAME']}</td>
-                                        <td>{$row['ENG']}</td>
-                                        <td>{$row['URDU']}</td>
-                                        <td>{$row['MATHS']}</td>
-                                        <td>{$row['PHYSICS']}</td>
-                                        <td>{$row['CHEMISTRY']}</td>
-                                        <td>{$row['TOTAL']}</td>
-                                        <td>500</td>
-                                        <td>{$row['PERCENT']}%</td>
-                                        <td>{$row['GRADE']}</td>
-                                        <td>{$row['REMARKS']}</td>
-                                        <td>
-                                            <a href='update.php?ID={$row['ID']}' class='btn btn-sm btn-warning mb-1'>Edit</a><br>
-                                            <a href='delete.php?ID={$row['ID']}' class='btn btn-sm btn-danger'>Delete</a>
-                                        </td>
-                                    </tr>";
-                                }
-                            } else {
-                                echo "<tr><td colspan='13'>No records found.</td></tr>";
-                            }
-                            ?>
-                        </tbody>
-                    </table>
+        <!-- Header Card -->
+        <div class="card shadow mb-4">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-0">
+                            <i class="fas fa-graduation-cap me-2"></i>
+                            Student Record Management
+                        </h3>
+                        <p class="mb-0 mt-1 opacity-75">Manage and track student academic records</p>
+                    </div>
+                    <a href="create.php" class="btn btn-light">
+                        <i class="fas fa-plus me-2"></i>Add Student
+                    </a>
                 </div>
-
-                <!-- PHP Pagination -->
-                <nav>
-                    <ul class="pagination justify-content-center mt-3">
-                        <?php if ($page > 1): ?>
-                        <li class="page-item">
-                            <a class="page-link" href="?page=<?= $page - 1 ?>">Previous</a>
-                        </li>
-                        <?php endif; ?>
-
-                        <?php
-                        for ($i = 1; $i <= $totalPages; $i++) {
-                            $active = ($i == $page) ? 'active' : '';
-                            echo "<li class='page-item $active'><a class='page-link' href='?page=$i'>$i</a></li>";
-                        }
-                        ?>
-
-                        <?php if ($page < $totalPages): ?>
-                        <li class="page-item">
-                            <a class="page-link" href="?page=<?= $page + 1 ?>">Next</a>
-                        </li>
-                        <?php endif; ?>
-                    </ul>
-                </nav>
-
             </div>
+        </div>
+
+        <!-- Controls Section -->
+        <div class="controls-section">
+            <div class="row g-3 align-items-center">
+                <div class="col-md-6">
+                    <div class="search-box">
+                        <i class="fas fa-search search-icon"></i>
+                        <input type="text" id="searchInput" class="form-control"
+                            placeholder="Search by name, grade, or remarks...">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <select id="recordsPerPage" class="form-select">
+                        <option value="5">5 records</option>
+                        <option value="10" selected>10 records</option>
+                        <option value="25">25 records</option>
+                        <option value="50">50 records</option>
+                        <option value="100">100 records</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <div id="recordsInfo" class="text-muted small"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Table Card -->
+        <div class="card shadow">
+            <div class="card-body p-0">
+                <div class="table-container">
+                    <div class="table-responsive">
+                        <table class="table table-hover text-center align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th class="sortable" data-column="ID">
+                                        ID
+                                    </th>
+                                    <th class="sortable" data-column="NAME">
+                                        Name
+                                    </th>
+                                    <th class="sortable" data-column="ENG">
+                                        English
+                                    </th>
+                                    <th class="sortable" data-column="URDU">
+                                        Urdu
+                                    </th>
+                                    <th class="sortable" data-column="MATHS">
+                                        Maths
+                                    </th>
+                                    <th class="sortable" data-column="PHYSICS">
+                                        Physics
+                                    </th>
+                                    <th class="sortable" data-column="CHEMISTRY">
+                                        Chemistry
+                                    </th>
+                                    <th class="sortable" data-column="TOTAL">
+                                        Obtained
+                                    </th>
+                                    <th>Total</th>
+                                    <th class="sortable" data-column="PERCENT">
+                                        Percentage
+                                    </th>
+                                    <th class="sortable" data-column="GRADE">
+                                        Grade
+                                    </th>
+                                    <th>Remarks</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="studentsTableBody">
+                                <!-- Data will be loaded via AJAX -->
+                                <tr>
+                                    <td colspan="13" class="text-center py-5">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        <p class="mt-2 text-muted">Loading student records...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pagination -->
+        <div class="d-flex justify-content-center mt-4">
+            <nav id="pagination"></nav>
         </div>
     </div>
 
-    <!-- jQuery (required for DataTables) -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- DataTables JS -->
-    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
-    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
-    <!-- Initialize DataTable: disable pagination because we handle it in PHP -->
-    <script>
-    $(document).ready(function() {
-        $('#studentTable').DataTable({
-            paging: false, // Disable DataTables pagination
-            lengthChange: false, // Hide "show N entries"
-            searching: true, // Enable search/filter
-            ordering: true // Enable sorting
-        });
-    });
-    </script>
+    <!-- Custom JavaScript -->
+    <script src="assets/js/app.js"></script>
 </body>
 
 </html>

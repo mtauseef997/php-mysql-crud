@@ -1,64 +1,61 @@
 <?php
-include "connect.php";
 
-// Function to calculate percentage
-function calculatePercentage($obtained, $total, $decimal = 2)
-{
-    return ($total == 0) ? 0 : round(($obtained / $total) * 100, $decimal);
-}
+/**
+ * Enhanced Create Student Record Page
+ * Features: Better UI, validation, and user experience
+ */
+require_once 'connect.php';
 
-// Function to get grade
-function getGrade($percent)
-{
-    if ($percent >= 90) return "A+";
-    elseif ($percent >= 80) return "A";
-    elseif ($percent >= 70) return "B";
-    elseif ($percent >= 60) return "C";
-    elseif ($percent >= 50) return "D";
-    else return "F";
-}
-
-// Function to get remarks
-function getRemarks($grade)
-{
-    switch ($grade) {
-        case 'A+':
-            return "Excellent";
-        case 'A':
-            return "Great";
-        case 'B':
-            return "Good";
-        case 'C':
-            return "Satisfactory";
-        case 'D':
-            return "Needs Improvement";
-        default:
-            return "Work Hard";
-    }
-}
+$message = '';
+$messageType = '';
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $name = $_POST['name'] ?? '';
-    $english = isset($_POST['eng']) ? (int)$_POST['eng'] : 0;
-    $urdu = isset($_POST['urdu']) ? (int)$_POST['urdu'] : 0;
-    $maths = isset($_POST['maths']) ? (int)$_POST['maths'] : 0;
-    $physics = isset($_POST['physics']) ? (int)$_POST['physics'] : 0;
-    $chemistry = isset($_POST['chemistry']) ? (int)$_POST['chemistry'] : 0;
+    // Sanitize and validate input
+    $name = sanitizeInput($_POST['name'] ?? '');
+    $english = intval($_POST['eng'] ?? 0);
+    $urdu = intval($_POST['urdu'] ?? 0);
+    $maths = intval($_POST['maths'] ?? 0);
+    $physics = intval($_POST['physics'] ?? 0);
+    $chemistry = intval($_POST['chemistry'] ?? 0);
 
-    $total = $english + $urdu + $maths + $physics + $chemistry;
-    $percent = calculatePercentage($total, 500);
-    $grade = getGrade($percent);
-    $remarks = getRemarks($grade);
+    // Validation
+    $errors = [];
 
-    $sql = "INSERT INTO record (NAME, ENG, URDU, MATHS, PHYSICS, CHEMISTRY, TOTAL, PERCENT, GRADE, REMARKS) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-    $stmt = $con->prepare($sql);
-    $stmt->bind_param("siiiiiddss", $name, $english, $urdu, $maths, $physics, $chemistry, $total, $percent, $grade, $remarks);
+    if (empty($name)) {
+        $errors[] = "Student name is required";
+    }
 
-    if ($stmt->execute()) {
-        echo "<div class='alert alert-success text-center'>Record inserted successfully!</div>";
+    if (!validateMarks($english)) $errors[] = "English marks must be between 0 and 100";
+    if (!validateMarks($urdu)) $errors[] = "Urdu marks must be between 0 and 100";
+    if (!validateMarks($maths)) $errors[] = "Maths marks must be between 0 and 100";
+    if (!validateMarks($physics)) $errors[] = "Physics marks must be between 0 and 100";
+    if (!validateMarks($chemistry)) $errors[] = "Chemistry marks must be between 0 and 100";
+
+    if (empty($errors)) {
+        // Calculate results
+        $total = $english + $urdu + $maths + $physics + $chemistry;
+        $percent = calculatePercentage($total, 500);
+        $grade = getGrade($percent);
+        $remarks = getRemarks($grade);
+
+        // Insert record
+        $sql = "INSERT INTO record (NAME, ENG, URDU, MATHS, PHYSICS, CHEMISTRY, TOTAL, PERCENT, GRADE, REMARKS)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        $stmt = $con->prepare($sql);
+        $stmt->bind_param("siiiiiddss", $name, $english, $urdu, $maths, $physics, $chemistry, $total, $percent, $grade, $remarks);
+
+        if ($stmt->execute()) {
+            $message = "Student record created successfully!";
+            $messageType = "success";
+            // Clear form data
+            $name = $english = $urdu = $maths = $physics = $chemistry = '';
+        } else {
+            $message = "Error creating record: " . $stmt->error;
+            $messageType = "danger";
+        }
     } else {
-        echo "<div class='alert alert-danger text-center'>Error: " . $stmt->error . "</div>";
+        $message = implode('<br>', $errors);
+        $messageType = "danger";
     }
 }
 ?>
@@ -69,55 +66,148 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Student Result Form</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>Add Student Record - Student Management System</title>
+
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Font Awesome Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Custom CSS -->
+    <link href="assets/css/style.css" rel="stylesheet">
 </head>
 
-<body class="bg-light">
-    <div class="container mt-5">
-        <div class="card shadow">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h3 class="mb-0">Student Result Entry</h3>
-                <a href="index.php" class="btn btn-dark btn-sm">Back to List</a>
+<body>
+    <div class="container mt-4">
+        <!-- Header Card -->
+        <div class="card shadow mb-4">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-0">
+                            <i class="fas fa-user-plus me-2"></i>
+                            Add Student Record
+                        </h3>
+                        <p class="mb-0 mt-1 opacity-75">Enter student information and marks</p>
+                    </div>
+                    <a href="index.php" class="btn btn-light">
+                        <i class="fas fa-arrow-left me-2"></i>Back to List
+                    </a>
+                </div>
             </div>
+        </div>
 
+        <!-- Alert Messages -->
+        <?php if (!empty($message)): ?>
+            <div class="alert alert-<?= $messageType ?> alert-dismissible fade show" role="alert">
+                <?= $message ?>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        <?php endif; ?>
+
+        <!-- Form Card -->
+        <div class="card shadow">
             <div class="card-body">
-                <form method="post">
-                    <div class="mb-3">
-                        <label for="name" class="form-label fw-bold">Student Name</label>
-                        <input type="text" name="name" class="form-control" id="name" placeholder="Enter student name"
+                <form id="studentForm" method="post" novalidate>
+                    <div class="mb-4">
+                        <label for="name" class="form-label">
+                            <i class="fas fa-user me-2"></i>Student Name
+                        </label>
+                        <input type="text"
+                            name="name"
+                            class="form-control"
+                            id="name"
+                            placeholder="Enter student full name"
+                            value="<?= htmlspecialchars($name ?? '') ?>"
                             required>
+                        <div class="invalid-feedback"></div>
                     </div>
 
-                    <h5 class="text-secondary mt-4 mb-3">Enter Marks (Out of 100)</h5>
-                    <div class="row g-3">
-                        <div class="col-md-4">
-                            <label for="eng" class="form-label">English</label>
-                            <input type="number" name="eng" class="form-control" id="eng" min="0" max="100" required>
-                        </div>
-                        <div class="col-md-4">
-                            <label for="urdu" class="form-label">Urdu</label>
-                            <input type="number" name="urdu" class="form-control" id="urdu" min="0" max="100" required>
-                        </div>
-                        <div class="col-md-4">
-                            <label for="maths" class="form-label">Maths</label>
-                            <input type="number" name="maths" class="form-control" id="maths" min="0" max="100"
-                                required>
-                        </div>
-                        <div class="col-md-4">
-                            <label for="physics" class="form-label">Physics</label>
-                            <input type="number" name="physics" class="form-control" id="physics" min="0" max="100"
-                                required>
-                        </div>
-                        <div class="col-md-4">
-                            <label for="chemistry" class="form-label">Chemistry</label>
-                            <input type="number" name="chemistry" class="form-control" id="chemistry" min="0" max="100"
-                                required>
+                    <div class="mb-4">
+                        <h5 class="text-secondary mb-3">
+                            <i class="fas fa-clipboard-list me-2"></i>
+                            Subject Marks (Out of 100)
+                        </h5>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label for="eng" class="form-label">English</label>
+                                <input type="number"
+                                    name="eng"
+                                    class="form-control"
+                                    id="eng"
+                                    min="0"
+                                    max="100"
+                                    placeholder="0-100"
+                                    value="<?= htmlspecialchars($english ?? '') ?>"
+                                    required>
+                                <div class="invalid-feedback"></div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="urdu" class="form-label">Urdu</label>
+                                <input type="number"
+                                    name="urdu"
+                                    class="form-control"
+                                    id="urdu"
+                                    min="0"
+                                    max="100"
+                                    placeholder="0-100"
+                                    value="<?= htmlspecialchars($urdu ?? '') ?>"
+                                    required>
+                                <div class="invalid-feedback"></div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="maths" class="form-label">Mathematics</label>
+                                <input type="number"
+                                    name="maths"
+                                    class="form-control"
+                                    id="maths"
+                                    min="0"
+                                    max="100"
+                                    placeholder="0-100"
+                                    value="<?= htmlspecialchars($maths ?? '') ?>"
+                                    required>
+                                <div class="invalid-feedback"></div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="physics" class="form-label">Physics</label>
+                                <input type="number"
+                                    name="physics"
+                                    class="form-control"
+                                    id="physics"
+                                    min="0"
+                                    max="100"
+                                    placeholder="0-100"
+                                    value="<?= htmlspecialchars($physics ?? '') ?>"
+                                    required>
+                                <div class="invalid-feedback"></div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="chemistry" class="form-label">Chemistry</label>
+                                <input type="number"
+                                    name="chemistry"
+                                    class="form-control"
+                                    id="chemistry"
+                                    min="0"
+                                    max="100"
+                                    placeholder="0-100"
+                                    value="<?= htmlspecialchars($chemistry ?? '') ?>"
+                                    required>
+                                <div class="invalid-feedback"></div>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="mt-4 text-end">
-                        <button type="submit" class="btn btn-primary px-4">Submit</button>
+                    <div class="d-flex gap-2 justify-content-end">
+                        <a href="index.php" class="btn btn-secondary">
+                            <i class="fas fa-times me-2"></i>Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i>Save Student
+                        </button>
                     </div>
                 </form>
             </div>
@@ -125,7 +215,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     </div>
 
     <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Custom JavaScript -->
+    <script src="assets/js/app.js"></script>
 </body>
 
 </html>
